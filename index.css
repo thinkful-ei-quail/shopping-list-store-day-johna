@@ -10,6 +10,7 @@ body {
 
 button, input[type="text"] {
   padding: 5px;
+  text-decoration: inherit;
 }
 
 button:hover {

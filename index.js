@@ -1,3 +1,7 @@
+'use strict';
+
+const keyCodeEnter = 13;
+
 const store = {
   items: [
     { id: cuid(), name: 'apples', checked: false },
@@ -5,23 +9,32 @@ const store = {
     { id: cuid(), name: 'milk', checked: true },
     { id: cuid(), name: 'bread', checked: false }
   ],
-  hideCheckedItems: false
+  hideCheckedItems: false,
+  nextRenamingId: null, // id of the item that we will start renaming on next render()
+  renamingId: null, // id of the item being renamed; assign null to cancel without commiting; no other assigns outside render() 
 };
 
 const generateItemElement = function (item) {
-  let itemTitle = `<span class='shopping-item shopping-item__checked'>${item.name}</span>`;
-  if (!item.checked) {
-    itemTitle = `
-     <span class='shopping-item'>${item.name}</span>
-    `;
+  let itemTitle, renameLabel;
+  if(item.id === store.renamingId)
+  {
+    itemTitle = `<input id='rename-field' type='text' value='${item.name}'>`;
+    renameLabel = 'cancel';
   }
-
+  else
+  {
+    itemTitle = item.name;
+    renameLabel = 'edit';
+  }
   return `
     <li class='js-item-element' data-item-id='${item.id}'>
-      ${itemTitle}
-      <div class='shopping-item-controls'>
+    <span class='shopping-item${item.checked ? ' shopping-item__checked' : ''}'>${itemTitle}</span>
+    <div class='shopping-item-controls'>
         <button class='shopping-item-toggle js-item-toggle'>
           <span class='button-label'>check</span>
+        </button>
+        <button class='shopping-item-rename js-item-rename'>
+          <span class='button-label'>${renameLabel}</span>
         </button>
         <button class='shopping-item-delete js-item-delete'>
           <span class='button-label'>delete</span>
@@ -39,6 +52,12 @@ const generateShoppingItemsString = function (shoppingList) {
  * Render the shopping list in the DOM
  */
 const render = function () {
+  // if there's an input box on the screen, record its contents before blasting it away
+  if(store.renamingId !== null)
+    commitRename();
+  store.renamingId = store.nextRenamingId; // now renaming the new id, if any
+  store.nextRenamingId = null; // as of yet, not starting a new rename on next render() pass
+
   // Set up a copy of the store's items in a local 
   // variable 'items' that we will reassign to a new
   // version if any filtering of the list occurs.
@@ -86,6 +105,28 @@ const handleItemCheckClicked = function () {
     const id = getItemIdFromElement(event.currentTarget);
     toggleCheckedForListItem(id);
     render();
+  });
+};
+
+const commitRename = function() {
+  const item = store.items.find(item => item.id === store.renamingId);
+  if(item)
+    item.name = $('#rename-field').val();
+}
+
+const handleItemRename = function() {
+  $('.js-shopping-list').on('click', '.js-item-rename', event => {
+    const id = getItemIdFromElement(event.currentTarget);
+    if(id == store.renamingId) // cancel rename in progress
+      store.renamingId = null;
+    else // start a new rename. don't overwrite renamingId directly because that would clobber any existing rename.
+      store.nextRenamingId = id;
+    render();
+  });
+  $('.js-shopping-list').on('keydown', 'input', event => {
+    if(event.keyCode === keyCodeEnter) {
+      render(); // render() now commits by default, so nothing else we really need to do
+    }
   });
 };
 
@@ -158,6 +199,7 @@ const handleShoppingList = function () {
   render();
   handleNewItemSubmit();
   handleItemCheckClicked();
+  handleItemRename();
   handleDeleteItemClicked();
   handleToggleFilterClick();
 };
